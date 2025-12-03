@@ -1,4 +1,4 @@
-# AI Girlfriend Chat 💕
+# AI Girlfriend Chat 
 
 A beautiful, deployable AI web app that lets users chat with a customizable AI girlfriend. Built with Next.js 14, TypeScript, React, and Tailwind CSS.
 
