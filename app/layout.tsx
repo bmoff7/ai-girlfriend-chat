@@ -21,18 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* 
-          =====================================================
-          GOOGLE ADSENSE HEAD SCRIPT (Optional)
-          =====================================================
-          
-          If you want to use Google AdSense, add your AdSense 
-          script tag here after getting approved:
-          
-          <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
-          
-          =====================================================
-        */}
+        <script 
+          async 
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6858666442862049"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="antialiased">
         {children}
