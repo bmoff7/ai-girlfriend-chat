@@ -2,12 +2,15 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { addCredits, setUnlimited } from '@/lib/storage';
+import { useAuth } from '@/components/AuthProvider';
+import { addCredits as localAddCredits, setUnlimited as localSetUnlimited } from '@/lib/storage';
+import { addCredits, setUnlimited } from '@/lib/supabase/database';
 import { CREDITS_100_PACK } from '@/lib/constants';
 
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, refreshProfile } = useAuth();
   const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
@@ -15,15 +18,27 @@ function SuccessContent() {
     
     const type = searchParams.get('type');
     
-    // Process the successful payment
-    if (type === 'unlimited') {
-      setUnlimited();
-    } else {
-      addCredits(CREDITS_100_PACK);
-    }
-    
-    setProcessed(true);
-  }, [searchParams, processed]);
+    const processPayment = async () => {
+      if (type === 'unlimited') {
+        if (user) {
+          await setUnlimited();
+          await refreshProfile();
+        } else {
+          localSetUnlimited();
+        }
+      } else {
+        if (user) {
+          await addCredits(CREDITS_100_PACK);
+          await refreshProfile();
+        } else {
+          localAddCredits(CREDITS_100_PACK);
+        }
+      }
+      setProcessed(true);
+    };
+
+    processPayment();
+  }, [searchParams, processed, user, refreshProfile]);
 
   const type = searchParams.get('type');
   const isUnlimited = type === 'unlimited';
@@ -156,4 +171,3 @@ export default function SuccessPage() {
     </Suspense>
   );
 }
-

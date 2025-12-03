@@ -2,13 +2,17 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import ChatPane from '@/components/ChatPane';
+import { useAuth } from '@/components/AuthProvider';
 import { DEFAULT_SETTINGS } from '@/lib/constants';
-import { getCredits } from '@/lib/storage';
 import type { UserSettings, CreditState } from '@/lib/types';
 
 export default function Home() {
+  const router = useRouter();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
+  
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [credits, setCredits] = useState<CreditState>({
     credits: 25,
@@ -18,32 +22,61 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
 
-  // Load credits on mount
+  // Load profile data when user is authenticated
   useEffect(() => {
     setMounted(true);
-    const currentCredits = getCredits();
-    setCredits(currentCredits);
     
-    // Check if user has chatted before (has less than initial credits or has settings saved)
-    const hasUsedBefore = currentCredits.credits < 25 || currentCredits.isUnlimited || localStorage.getItem('gf_chat_settings');
-    if (hasUsedBefore) {
+    if (!authLoading && user && profile) {
+      // User is logged in - load settings from profile
+      setSettings({
+        gfName: profile.gf_name,
+        yourName: profile.your_name,
+        personality: profile.personality,
+        backstory: profile.backstory,
+        textingStyle: profile.texting_style,
+      });
+      setCredits({
+        credits: profile.credits,
+        isUnlimited: profile.is_unlimited,
+        lastUpdated: profile.updated_at,
+      });
       setShowLanding(false);
+    } else if (!authLoading && !user) {
+      // Not logged in - check if returning visitor
+      const hasVisited = localStorage.getItem('gf_chat_visited');
+      if (hasVisited) {
+        setShowLanding(false);
+      }
     }
-  }, []);
+  }, [authLoading, user, profile]);
 
-  // Refresh credits
-  const refreshCredits = useCallback(() => {
-    const currentCredits = getCredits();
-    setCredits(currentCredits);
-  }, []);
+  // Refresh credits from profile
+  const refreshCredits = useCallback(async () => {
+    if (user) {
+      await refreshProfile();
+      if (profile) {
+        setCredits({
+          credits: profile.credits,
+          isUnlimited: profile.is_unlimited,
+          lastUpdated: profile.updated_at,
+        });
+      }
+    }
+  }, [user, profile, refreshProfile]);
 
   // Handle settings change from sidebar
   const handleSettingsChange = useCallback((newSettings: UserSettings) => {
     setSettings(newSettings);
   }, []);
 
-  // Prevent hydration mismatch
-  if (!mounted) {
+  // Start chatting (mark as visited)
+  const handleStartChatting = () => {
+    localStorage.setItem('gf_chat_visited', 'true');
+    setShowLanding(false);
+  };
+
+  // Loading state
+  if (!mounted || authLoading) {
     return (
       <main className="h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -57,7 +90,7 @@ export default function Home() {
   }
 
   // Landing page for new visitors
-  if (showLanding) {
+  if (showLanding && !user) {
     return (
       <main className="min-h-screen">
         {/* Background decoration */}
@@ -88,18 +121,27 @@ export default function Home() {
                 Your personal AI companion who&apos;s always there to chat, listen, and brighten your day 💫
               </p>
 
-              <button
-                onClick={() => setShowLanding(false)}
-                className="px-8 py-4 bg-gradient-to-r from-gf-pink-500 to-gf-purple-600 text-white text-lg font-semibold rounded-2xl hover:opacity-90 transition-all btn-glow inline-flex items-center gap-3"
-              >
-                <span>Start Chatting</span>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => router.push('/login')}
+                  className="px-8 py-4 bg-gradient-to-r from-gf-pink-500 to-gf-purple-600 text-white text-lg font-semibold rounded-2xl hover:opacity-90 transition-all btn-glow inline-flex items-center gap-3"
+                >
+                  <span>Sign Up Free</span>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </button>
+                
+                <button
+                  onClick={handleStartChatting}
+                  className="px-8 py-4 bg-white/10 text-white text-lg font-semibold rounded-2xl hover:bg-white/20 transition-all inline-flex items-center gap-3"
+                >
+                  <span>Try Without Account</span>
+                </button>
+              </div>
 
               <p className="mt-4 text-white/40 text-sm">
-                25 free messages to start • No credit card required
+                25 free messages • Sign up to save your chats forever
               </p>
             </div>
           </section>
@@ -150,31 +192,31 @@ export default function Home() {
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="glass rounded-2xl p-6 text-center">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gf-pink-400/20 to-gf-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">🧠</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">She Remembers You</h3>
+                  <p className="text-white/60">
+                    Your AI girlfriend remembers past conversations and builds a real connection over time.
+                  </p>
+                </div>
+
+                <div className="glass rounded-2xl p-6 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gf-pink-400/20 to-gf-purple-500/20 flex items-center justify-center mx-auto mb-4">
                     <span className="text-3xl">🎭</span>
                   </div>
                   <h3 className="text-xl font-bold text-white mb-2">5 Unique Personalities</h3>
                   <p className="text-white/60">
-                    Choose from Sweet, Calm, Playful, Clingy, or Tsundere—each with their own charm and texting style.
+                    Choose from Sweet, Calm, Playful, Clingy, or Tsundere—each with their own charm.
                   </p>
                 </div>
 
                 <div className="glass rounded-2xl p-6 text-center">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gf-pink-400/20 to-gf-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-3xl">✨</span>
+                    <span className="text-3xl">☁️</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Fully Customizable</h3>
+                  <h3 className="text-xl font-bold text-white mb-2">Syncs Everywhere</h3>
                   <p className="text-white/60">
-                    Name her, write your backstory, and choose how she texts—make the experience uniquely yours.
-                  </p>
-                </div>
-
-                <div className="glass rounded-2xl p-6 text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gf-pink-400/20 to-gf-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-3xl">💬</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Natural Conversations</h3>
-                  <p className="text-white/60">
-                    Powered by cutting-edge AI that understands context and responds like a real person would.
+                    Access your girlfriend from any device. Your chats and settings sync automatically.
                   </p>
                 </div>
               </div>
@@ -188,13 +230,13 @@ export default function Home() {
                 Ready to Meet Her?
               </h2>
               <p className="text-white/60 text-lg mb-8">
-                Start chatting for free and experience the comfort of having someone who&apos;s always there for you.
+                Create a free account to save your chats and have her remember you forever.
               </p>
               <button
-                onClick={() => setShowLanding(false)}
+                onClick={() => router.push('/login')}
                 className="px-8 py-4 bg-gradient-to-r from-gf-pink-500 to-gf-purple-600 text-white text-lg font-semibold rounded-2xl hover:opacity-90 transition-all btn-glow inline-flex items-center gap-3"
               >
-                <span>Start Free Chat</span>
+                <span>Get Started Free</span>
                 <span>💕</span>
               </button>
             </div>
@@ -226,6 +268,21 @@ export default function Home() {
 
   return (
     <main className="h-screen flex flex-col overflow-hidden">
+      {/* Login prompt for non-authenticated users */}
+      {!user && (
+        <div className="px-4 py-2 bg-gradient-to-r from-gf-pink-500/20 to-gf-purple-500/20 border-b border-white/10 flex items-center justify-center gap-4">
+          <p className="text-white/70 text-sm">
+            💡 Sign up to save your chats and have her remember you!
+          </p>
+          <button
+            onClick={() => router.push('/login')}
+            className="px-4 py-1.5 bg-gradient-to-r from-gf-pink-500 to-gf-purple-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all"
+          >
+            Sign Up Free
+          </button>
+        </div>
+      )}
+      
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <Sidebar 

@@ -4,6 +4,13 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Message, UserSettings, CreditState } from '@/lib/types';
 import { PERSONALITIES } from '@/lib/constants';
 import { deductCredit, canSendMessage } from '@/lib/storage';
+import { useAuth } from '@/components/AuthProvider';
+import { 
+  getChatHistory, 
+  saveMessage, 
+  deductCredit as dbDeductCredit,
+  updateProfile 
+} from '@/lib/supabase/database';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import PaywallModal from './PaywallModal';
@@ -15,11 +22,13 @@ interface ChatPaneProps {
 }
 
 export default function ChatPane({ settings, credits, onCreditsChange }: ChatPaneProps) {
+  const { user, profile, refreshProfile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -32,11 +41,43 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
 
-  // Send girlfriend's first message when app opens
+  // Load chat history from database for authenticated users
   useEffect(() => {
-    if (!hasInitialized && settings.gfName) {
+    const loadHistory = async () => {
+      if (user) {
+        setIsLoadingHistory(true);
+        const history = await getChatHistory(100);
+        
+        if (history.length > 0) {
+          // Convert DB messages to local format
+          const loadedMessages: Message[] = history.map((msg) => ({
+            id: msg.id,
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+          }));
+          setMessages(loadedMessages);
+          setHasInitialized(true);
+        }
+        setIsLoadingHistory(false);
+      } else {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    loadHistory();
+  }, [user]);
+
+  // Send girlfriend's first message when app opens (if no history)
+  useEffect(() => {
+    if (!hasInitialized && settings.gfName && !isLoadingHistory) {
+      // Don't send greeting if we loaded history from DB
+      if (messages.length > 0) {
+        setHasInitialized(true);
+        return;
+      }
+
       setHasInitialized(true);
-      const personality = PERSONALITIES.find((p) => p.id === settings.personality);
       
       // Generate a greeting based on personality
       let greeting = '';
@@ -67,8 +108,13 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
         timestamp: new Date(),
       };
       setMessages([firstMessage]);
+
+      // Save greeting to database for authenticated users
+      if (user) {
+        saveMessage('assistant', greeting);
+      }
     }
-  }, [hasInitialized, settings.gfName, settings.yourName, settings.personality]);
+  }, [hasInitialized, settings.gfName, settings.yourName, settings.personality, user, isLoadingHistory, messages.length]);
 
   // Reset chat when girlfriend name changes
   useEffect(() => {
@@ -78,13 +124,21 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
     }
   }, [settings.gfName]);
 
+  // Check if user can send message
+  const checkCanSend = (): boolean => {
+    if (user && profile) {
+      return profile.is_unlimited || profile.credits > 0;
+    }
+    return canSendMessage();
+  };
+
   // Handle sending a message
   const handleSend = async () => {
     const trimmedInput = inputValue.trim();
     if (!trimmedInput || isTyping) return;
 
     // Check credits before sending
-    if (!canSendMessage()) {
+    if (!checkCanSend()) {
       setShowPaywall(true);
       return;
     }
@@ -100,18 +154,38 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
     setInputValue('');
     setIsTyping(true);
 
+    // Save user message to database
+    if (user) {
+      await saveMessage('user', trimmedInput);
+    }
+
     try {
-      // Prepare messages for API (without timestamps and ids)
-      const apiMessages = [...messages, userMessage].map((m) => ({
+      // Get chat history for AI memory
+      let chatHistoryForAI = [...messages, userMessage].map((m) => ({
         role: m.role,
         content: m.content,
       }));
+
+      // For authenticated users, we might want more history
+      if (user) {
+        const fullHistory = await getChatHistory(50);
+        if (fullHistory.length > 0) {
+          chatHistoryForAI = fullHistory.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+          // Add the current message if not already included
+          if (chatHistoryForAI[chatHistoryForAI.length - 1]?.content !== trimmedInput) {
+            chatHistoryForAI.push({ role: 'user', content: trimmedInput });
+          }
+        }
+      }
 
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: apiMessages,
+          messages: chatHistoryForAI,
           gfName: settings.gfName,
           yourName: settings.yourName,
           personality: settings.personality,
@@ -127,9 +201,14 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
       }
 
       // Deduct credit for successful response
-      const newCredits = deductCredit();
-      if (newCredits === -1 && !credits.isUnlimited) {
-        setShowPaywall(true);
+      if (user) {
+        await dbDeductCredit();
+        await refreshProfile();
+      } else {
+        const newCredits = deductCredit();
+        if (newCredits === -1 && !credits.isUnlimited) {
+          setShowPaywall(true);
+        }
       }
       onCreditsChange();
 
@@ -141,6 +220,11 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Save assistant message to database
+      if (user) {
+        await saveMessage('assistant', data.message);
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       // Add error message
@@ -175,7 +259,7 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
     }
   };
 
-  const isDisabled = !canSendMessage();
+  const isDisabled = !checkCanSend();
 
   return (
     <>
@@ -203,22 +287,38 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
                 {PERSONALITIES.find((p) => p.id === settings.personality)?.emoji}{' '}
                 {PERSONALITIES.find((p) => p.id === settings.personality)?.name}
               </span>
+              {user && (
+                <span className="text-xs text-green-400/60 bg-green-500/10 px-3 py-1.5 rounded-full">
+                  ☁️ Synced
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              gfName={settings.gfName}
-              yourName={settings.yourName}
-            />
-          ))}
-          
-          {isTyping && <TypingIndicator gfName={settings.gfName} />}
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-gf-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-white/40 text-sm">Loading your chat history...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  gfName={settings.gfName}
+                  yourName={settings.yourName}
+                />
+              ))}
+              
+              {isTyping && <TypingIndicator gfName={settings.gfName} />}
+            </>
+          )}
           
           <div ref={messagesEndRef} />
         </div>
@@ -278,4 +378,3 @@ export default function ChatPane({ settings, credits, onCreditsChange }: ChatPan
     </>
   );
 }
-
