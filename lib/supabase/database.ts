@@ -34,15 +34,16 @@ export async function getProfile(): Promise<Profile | null> {
 /**
  * Update user profile settings
  */
-export async function updateProfile(updates: Partial<Profile>): Promise<Profile | null> {
+export async function updateProfile(updates: Record<string, unknown>): Promise<Profile | null> {
   const supabase = createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates as Database['public']['Tables']['profiles']['Update'])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase
+    .from('profiles') as any)
+    .update(updates)
     .eq('id', user.id)
     .select()
     .single();
@@ -52,7 +53,7 @@ export async function updateProfile(updates: Partial<Profile>): Promise<Profile 
     return null;
   }
 
-  return data;
+  return data as Profile;
 }
 
 /**
