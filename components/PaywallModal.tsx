@@ -111,14 +111,6 @@ export default function PaywallModal({
               <span className="text-green-400">✓</span>
               All personalities
             </div>
-            <div className="flex items-center gap-2 text-white/60">
-              <span className="text-green-400">✓</span>
-              Priority responses
-            </div>
-            <div className="flex items-center gap-2 text-white/60">
-              <span className="text-green-400">✓</span>
-              No ads
-            </div>
           </div>
         </div>
       </div>

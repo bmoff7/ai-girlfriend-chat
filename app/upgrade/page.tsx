@@ -228,14 +228,6 @@ export default function UpgradePage() {
                 </li>
                 <li className="flex items-center gap-2 text-white/70 text-sm">
                   <span className="text-green-400">✓</span>
-                  Priority response times
-                </li>
-                <li className="flex items-center gap-2 text-white/70 text-sm">
-                  <span className="text-green-400">✓</span>
-                  No ads
-                </li>
-                <li className="flex items-center gap-2 text-white/70 text-sm">
-                  <span className="text-green-400">✓</span>
                   Cancel anytime
                 </li>
               </ul>

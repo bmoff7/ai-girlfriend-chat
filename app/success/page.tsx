@@ -116,14 +116,6 @@ function SuccessContent() {
                   <span className="text-green-400 text-lg">✓</span>
                   All 5 personalities unlocked
                 </li>
-                <li className="flex items-center gap-3 text-white/70">
-                  <span className="text-green-400 text-lg">✓</span>
-                  Priority response times
-                </li>
-                <li className="flex items-center gap-3 text-white/70">
-                  <span className="text-green-400 text-lg">✓</span>
-                  Ad-free experience
-                </li>
               </>
             ) : (
               <>
