@@ -2,43 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadStripe } from '@stripe/stripe-js';
 import { STRIPE_CONFIG } from '@/lib/constants';
 import { getCredits } from '@/lib/storage';
-
-/**
- * Upgrade Page - Stripe Checkout Integration
- * 
- * SETUP INSTRUCTIONS:
- * 
- * 1. Create a Stripe account at https://stripe.com
- * 
- * 2. In your Stripe Dashboard, create two products:
- *    - "100 Messages" - One-time payment of $3.99
- *    - "Unlimited Chat" - Recurring subscription of $4.99/month
- * 
- * 3. Copy the Price IDs for each product and add them to your .env.local:
- *    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
- *    NEXT_PUBLIC_STRIPE_PRICE_100_MESSAGES=price_...
- *    NEXT_PUBLIC_STRIPE_PRICE_UNLIMITED=price_...
- * 
- * 4. For production, create a webhook endpoint at /api/webhook to:
- *    - Handle successful payments
- *    - Add credits or set unlimited flag
- *    - Verify payment signatures
- * 
- * NOTE: This implementation uses client-side Stripe Checkout.
- * For a production app, consider server-side checkout for better security.
- */
-
-// Initialize Stripe (lazy load)
-const getStripe = () => {
-  if (!STRIPE_CONFIG.publishableKey) {
-    console.warn('Stripe publishable key is not configured');
-    return null;
-  }
-  return loadStripe(STRIPE_CONFIG.publishableKey);
-};
 
 export default function UpgradePage() {
   const router = useRouter();
@@ -61,25 +26,26 @@ export default function UpgradePage() {
     setLoading(priceId);
 
     try {
-      const stripe = await getStripe();
-      
-      if (!stripe) {
-        alert('Stripe is not configured. Please add your Stripe Publishable Key to the environment variables.');
+      // Call our server-side checkout API
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ priceId, mode }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        alert(data.error);
         setLoading(null);
         return;
       }
 
       // Redirect to Stripe Checkout
-      const { error } = await stripe.redirectToCheckout({
-        lineItems: [{ price: priceId, quantity: 1 }],
-        mode: mode,
-        successUrl: `${window.location.origin}/success?type=${mode === 'subscription' ? 'unlimited' : 'credits'}`,
-        cancelUrl: `${window.location.origin}/cancel`,
-      });
-
-      if (error) {
-        console.error('Stripe error:', error);
-        alert(error.message);
+      if (data.url) {
+        window.location.href = data.url;
       }
     } catch (err) {
       console.error('Checkout error:', err);
