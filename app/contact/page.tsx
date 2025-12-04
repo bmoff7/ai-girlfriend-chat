@@ -180,15 +180,6 @@ export default function ContactPage() {
             </form>
           )}
 
-          {/* Alternative contact */}
-          <div className="mt-8 pt-8 border-t border-white/10 text-center">
-            <p className="text-white/50 text-sm">
-              You can also reach us directly at{' '}
-              <a href="mailto:support@aigirlfriendchat.com" className="text-gf-pink-400 hover:underline">
-                support@aigirlfriendchat.com
-              </a>
-            </p>
-          </div>
         </div>
 
         {/* Footer Links */}
