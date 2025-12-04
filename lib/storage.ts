@@ -9,20 +9,24 @@ const isBrowser = typeof window !== 'undefined';
  */
 export function getCredits(): CreditState {
   if (!isBrowser) {
-    return { credits: INITIAL_CREDITS, isUnlimited: false, lastUpdated: new Date().toISOString() };
+    return { credits: INITIAL_CREDITS, isUnlimited: false, hasPurchased: false, lastUpdated: new Date().toISOString() };
   }
 
   try {
     // Check for unlimited flag
     const unlimitedFlag = localStorage.getItem(STORAGE_KEYS.UNLIMITED);
     if (unlimitedFlag === 'true') {
-      return { credits: Infinity, isUnlimited: true, lastUpdated: new Date().toISOString() };
+      return { credits: Infinity, isUnlimited: true, hasPurchased: true, lastUpdated: new Date().toISOString() };
     }
 
     // Get credits
     const stored = localStorage.getItem(STORAGE_KEYS.CREDITS);
     if (stored) {
       const parsed = JSON.parse(stored) as CreditState;
+      // Handle old format without hasPurchased
+      if (parsed.hasPurchased === undefined) {
+        parsed.hasPurchased = false;
+      }
       return parsed;
     }
 
@@ -30,12 +34,13 @@ export function getCredits(): CreditState {
     const initial: CreditState = {
       credits: INITIAL_CREDITS,
       isUnlimited: false,
+      hasPurchased: false,
       lastUpdated: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.CREDITS, JSON.stringify(initial));
     return initial;
   } catch {
-    return { credits: INITIAL_CREDITS, isUnlimited: false, lastUpdated: new Date().toISOString() };
+    return { credits: INITIAL_CREDITS, isUnlimited: false, hasPurchased: false, lastUpdated: new Date().toISOString() };
   }
 }
 
@@ -62,6 +67,7 @@ export function deductCredit(): number {
   const newState: CreditState = {
     credits: state.credits - 1,
     isUnlimited: false,
+    hasPurchased: state.hasPurchased,
     lastUpdated: new Date().toISOString(),
   };
   
@@ -85,6 +91,7 @@ export function addCredits(amount: number = CREDITS_100_PACK): number {
   const newState: CreditState = {
     credits: state.credits + amount,
     isUnlimited: false,
+    hasPurchased: true, // Mark as purchased when adding credits
     lastUpdated: new Date().toISOString(),
   };
   
@@ -103,6 +110,7 @@ export function setUnlimited(): void {
   const state: CreditState = {
     credits: Infinity,
     isUnlimited: true,
+    hasPurchased: true,
     lastUpdated: new Date().toISOString(),
   };
   localStorage.setItem(STORAGE_KEYS.CREDITS, JSON.stringify(state));

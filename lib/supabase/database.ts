@@ -110,7 +110,7 @@ export async function addCredits(amount: number): Promise<number> {
   const newCredits = profile.credits + amount;
   const { error } = await supabase
     .from('profiles')
-    .update({ credits: newCredits })
+    .update({ credits: newCredits, has_purchased: true })
     .eq('id', user.id);
 
   if (error) {
@@ -132,7 +132,7 @@ export async function setUnlimited(): Promise<boolean> {
 
   const { error } = await supabase
     .from('profiles')
-    .update({ is_unlimited: true })
+    .update({ is_unlimited: true, has_purchased: true })
     .eq('id', user.id);
 
   if (error) {

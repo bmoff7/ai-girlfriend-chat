@@ -15,6 +15,7 @@ create table public.profiles (
   email text unique not null,
   credits integer default 25 not null,
   is_unlimited boolean default false not null,
+  has_purchased boolean default false not null,
   gf_name text default 'Luna' not null,
   your_name text default 'Babe' not null,
   personality text default 'sweet' not null,
@@ -23,6 +24,12 @@ create table public.profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- =====================================================
+-- MIGRATION: Add has_purchased column to existing table
+-- Run this if table already exists:
+-- =====================================================
+-- alter table public.profiles add column if not exists has_purchased boolean default false not null;
 
 -- Enable Row Level Security
 alter table public.profiles enable row level security;

@@ -17,6 +17,7 @@ export default function Home() {
   const [credits, setCredits] = useState<CreditState>({
     credits: 25,
     isUnlimited: false,
+    hasPurchased: false,
     lastUpdated: new Date().toISOString(),
   });
   const [mounted, setMounted] = useState(false);
@@ -38,6 +39,7 @@ export default function Home() {
       setCredits({
         credits: profile.credits,
         isUnlimited: profile.is_unlimited,
+        hasPurchased: profile.has_purchased,
         lastUpdated: profile.updated_at,
       });
       setShowLanding(false);
@@ -58,6 +60,7 @@ export default function Home() {
         setCredits({
           credits: profile.credits,
           isUnlimited: profile.is_unlimited,
+          hasPurchased: profile.has_purchased,
           lastUpdated: profile.updated_at,
         });
       }

@@ -36,6 +36,7 @@ export interface UserSettings {
 export interface CreditState {
   credits: number;
   isUnlimited: boolean;
+  hasPurchased: boolean;
   lastUpdated: string;
 }
 

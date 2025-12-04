@@ -73,13 +73,12 @@ export default function Sidebar({ onSettingsChange, credits }: SidebarProps) {
     const personality = PERSONALITIES.find((p) => p.id === personalityId);
     
     if (personality?.isPremium) {
-      // Check credits
-      const creditState = user && profile 
-        ? { credits: profile.credits, isUnlimited: profile.is_unlimited }
-        : getCredits();
-      const unlimited = user ? profile?.is_unlimited : hasUnlimited();
+      // Check if user has purchased (unlimited or bought credits)
+      const hasPurchased = user && profile 
+        ? (profile.is_unlimited || profile.has_purchased)
+        : (hasUnlimited() || getCredits().hasPurchased);
       
-      if (!unlimited && creditState.credits <= 0) {
+      if (!hasPurchased) {
         setLockedPersonality(personality.name);
         setShowPaywall(true);
         return;
@@ -222,7 +221,7 @@ export default function Sidebar({ onSettingsChange, credits }: SidebarProps) {
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {PERSONALITIES.map((p) => {
-                  const isLocked = p.isPremium && !credits.isUnlimited && credits.credits <= 0;
+                  const isLocked = p.isPremium && !credits.isUnlimited && !credits.hasPurchased;
                   const isSelected = settings.personality === p.id;
                   
                   return (

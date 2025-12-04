@@ -15,6 +15,7 @@ export interface Database {
           email: string;
           credits: number;
           is_unlimited: boolean;
+          has_purchased: boolean;
           gf_name: string;
           your_name: string;
           personality: string;
@@ -28,6 +29,7 @@ export interface Database {
           email: string;
           credits?: number;
           is_unlimited?: boolean;
+          has_purchased?: boolean;
           gf_name?: string;
           your_name?: string;
           personality?: string;
@@ -41,6 +43,7 @@ export interface Database {
           email?: string;
           credits?: number;
           is_unlimited?: boolean;
+          has_purchased?: boolean;
           gf_name?: string;
           your_name?: string;
           personality?: string;
