@@ -42,7 +42,7 @@ export async function updateProfile(updates: Partial<Profile>): Promise<Profile 
 
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
+    .update(updates as Database['public']['Tables']['profiles']['Update'])
     .eq('id', user.id)
     .select()
     .single();
