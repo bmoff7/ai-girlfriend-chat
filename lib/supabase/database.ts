@@ -4,6 +4,10 @@ import type { Database } from './types';
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
 
+// Helper to get typed supabase client
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getSupabase = () => createClient() as any;
+
 // =====================================================
 // PROFILE FUNCTIONS
 // =====================================================
@@ -12,7 +16,7 @@ type Message = Database['public']['Tables']['messages']['Row'];
  * Get the current user's profile
  */
 export async function getProfile(): Promise<Profile | null> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -28,21 +32,20 @@ export async function getProfile(): Promise<Profile | null> {
     return null;
   }
 
-  return data;
+  return data as Profile;
 }
 
 /**
  * Update user profile settings
  */
 export async function updateProfile(updates: Record<string, unknown>): Promise<Profile | null> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase
-    .from('profiles') as any)
+  const { data, error } = await supabase
+    .from('profiles')
     .update(updates)
     .eq('id', user.id)
     .select()
@@ -60,7 +63,7 @@ export async function updateProfile(updates: Record<string, unknown>): Promise<P
  * Deduct one credit from user
  */
 export async function deductCredit(): Promise<number> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return -1;
@@ -94,7 +97,7 @@ export async function deductCredit(): Promise<number> {
  * Add credits to user account
  */
 export async function addCredits(amount: number): Promise<number> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 0;
@@ -122,7 +125,7 @@ export async function addCredits(amount: number): Promise<number> {
  * Set user to unlimited
  */
 export async function setUnlimited(): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
@@ -149,7 +152,7 @@ export async function setUnlimited(): Promise<boolean> {
  * Returns last N messages for context
  */
 export async function getChatHistory(limit: number = 50): Promise<Message[]> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -166,7 +169,7 @@ export async function getChatHistory(limit: number = 50): Promise<Message[]> {
     return [];
   }
 
-  return data || [];
+  return (data || []) as Message[];
 }
 
 /**
@@ -176,7 +179,7 @@ export async function saveMessage(
   role: 'user' | 'assistant',
   content: string
 ): Promise<Message | null> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -196,14 +199,14 @@ export async function saveMessage(
     return null;
   }
 
-  return data;
+  return data as Message;
 }
 
 /**
  * Clear all chat history (start fresh)
  */
 export async function clearChatHistory(): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = getSupabase();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
@@ -220,4 +223,3 @@ export async function clearChatHistory(): Promise<boolean> {
 
   return true;
 }
-
